@@ -54,7 +54,7 @@ router.put("/updateOrderTracking/:id", async (req, res) => {
   }
 });
 
-//create order API
+// Route to create a new order
 router.post("/create-order", async (req, res) => {
   console.log("Request body:", req.body);
 
@@ -73,6 +73,7 @@ router.post("/create-order", async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
+    // Find or create user
     const name = customer_details?.name || "";
     const address = customer_details?.address || {};
     const [firstName, lastName] = name.split(" ");
@@ -81,13 +82,13 @@ router.post("/create-order", async (req, res) => {
     const existingUser = await UserModel.findOne({ email: user });
 
     if (existingUser) {
-      existingUser.name = firstName || existingUser.name;
-      existingUser.lastName = lastName || existingUser.lastName;
-      existingUser.street = address.line1 || existingUser.street;
-      existingUser.city = address.city || existingUser.city;
-      existingUser.province = address.state || existingUser.province;
-      existingUser.postalCode = address.postal_code || existingUser.postalCode;
-      existingUser.country = address.country || existingUser.country;
+      if (firstName) existingUser.name = firstName;
+      if (lastName) existingUser.lastName = lastName;
+      if (address.line1) existingUser.street = address.line1;
+      if (address.city) existingUser.city = address.city;
+      if (address.state) existingUser.province = address.state;
+      if (address.postal_code) existingUser.postalCode = address.postal_code;
+      if (address.country) existingUser.country = address.country;
 
       await existingUser.save();
       userId = existingUser._id;
@@ -101,7 +102,7 @@ router.post("/create-order", async (req, res) => {
         province: address.state || "",
         postalCode: address.postal_code || "",
         country: address.country || "",
-        phone: address.phone || "",
+        phone: customer_details?.phone || "",
         admin: false,
         isActive: true,
         emailSubscribed: false,
@@ -111,27 +112,21 @@ router.post("/create-order", async (req, res) => {
       userId = savedUser._id;
     }
 
-    console.log(
-      "Counter before update:",
-      await Counter.findById("orderNumber")
-    );
-
+    // Increment order number
     const counter = await Counter.findByIdAndUpdate(
       { _id: "orderNumber" },
       { $inc: { seq: 1 } },
       { new: true, upsert: true }
     );
-
-    console.log("Updated counter:", counter);
     const orderNumber = counter.seq;
-    console.log("Assigned order number:", orderNumber);
 
+    // Create order
     const order = new Order({
       user: userId,
       items: items.map((item) => ({
-        product: item.product,
+        productId: item.productId, // Ensure this is passed as a string
+        variantId: item.variantId || "",
         name: item.name,
-        variant: item.variant || "",
         variantName: item.variantName || "",
         quantity: item.quantity,
         price: item.price,
@@ -140,8 +135,8 @@ router.post("/create-order", async (req, res) => {
       shippingInfo: {
         carrierName: shippingInfo.carrierName,
         shippingCost: shippingInfo.shippingCost,
-        address: shippingInfo.address, // Add this line
-        shippingOption: shippingInfo.shippingOption, // Add this line
+        address: shippingInfo.address,
+        shippingOption: shippingInfo.shippingOption,
       },
       subtotal,
       totalPrice,

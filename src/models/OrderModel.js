@@ -2,12 +2,12 @@ import mongoose from "mongoose";
 
 // Define a schema for order items
 const orderItemSchema = new mongoose.Schema({
-  product: {
-    type: String, // Change to String
+  productId: {
+    type: String,
     required: true,
   },
-  variant: {
-    type: String, // Change to String
+  variantId: {
+    type: String,
     required: false,
   },
   name: {
@@ -45,11 +45,11 @@ const shippingInfoSchema = new mongoose.Schema({
   },
   shippingOption: {
     type: String,
-    required: true, // Add this line
+    required: true,
   },
   address: {
-    type: Object, // Add this line if you want to store the address as an object
-    required: true, // Add this line if you want to make it required
+    type: Object,
+    required: true,
   },
 });
 

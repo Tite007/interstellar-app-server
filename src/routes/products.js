@@ -148,6 +148,33 @@ router.get("/getProductVariants/:id", async (req, res) => {
   }
 });
 
+// Route to find a variant by variant _id
+router.get("/findVariant/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Find the product that contains the variant with the given id
+    const product = await Products.findOne(
+      { "variants._id": id },
+      { "variants.$": 1 }
+    ).exec();
+
+    if (!product || !product.variants.length) {
+      return res.status(404).json({ message: "Variant not found" });
+    }
+
+    // The variant should be the first (and only) item in the product.variants array
+    const variant = product.variants[0];
+    res.status(200).json(variant);
+  } catch (error) {
+    console.error("Error fetching variant:", error);
+    res.status(500).json({
+      message: "Failed to get variant",
+      error: error.message,
+    });
+  }
+});
+
 // Route to update a product variant by _id and variantId
 router.put("/updateProductVariant/:id/:variantId", async (req, res) => {
   const { id, variantId } = req.params;

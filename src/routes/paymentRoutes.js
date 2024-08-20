@@ -7,6 +7,7 @@ import { Order } from "../models/OrderModel.js"; // Adjust the path as necessary
 import fetch from "node-fetch"; // Ensure node-fetch is installed
 import { Products } from "../models/ProductModel.js"; // Import Products model
 import { handleCheckoutSessionCompleted } from "../hanlders/webhookHandlers.js"; // Import the handler
+import mongoose from "mongoose";
 
 dotenv.config();
 
@@ -48,29 +49,60 @@ const getShippingOptions = () => [
   },
 ];
 
-// Function to map items to line items
+// Function to map an products to a line item
 const mapItemToLineItem = (item, products) => {
-  const [productName, variantValue] = item.name.split(" - ");
-  const product = products.find((p) => p.name === productName);
+  const product = products.find((p) => p._id.toString() === item.productId);
   if (!product) {
-    throw new Error(`Product not found for name: ${productName}`);
+    throw new Error(`Product not found for ID: ${item.productId}`);
   }
 
-  const variant = product.variants?.find((v) =>
-    v.optionValues.some((ov) => ov.value === variantValue)
-  );
+  const productId = item.productId;
+  const variantId = item.variantId || null;
 
-  const variantOption = variant?.optionValues.find(
-    (v) => v.value === variantValue
-  );
-  const name = variantOption
-    ? `${product.name} - ${variantOption.value}`
-    : product.name;
-  const price = variantOption ? variantOption.price : product.price;
-  const image = (variant && variant.images?.[0]) || product.images?.[0] || null;
+  let name, price, image, metadata;
+
+  if (variantId) {
+    const variant = product.variants.find((v) =>
+      v.optionValues.some((ov) => ov._id.toString() === variantId)
+    );
+
+    if (!variant) {
+      throw new Error(`Variant not found for ID: ${variantId}`);
+    }
+
+    const variantOption = variant.optionValues.find(
+      (v) => v._id.toString() === variantId
+    );
+
+    if (!variantOption) {
+      throw new Error(`Variant option not found for ID: ${variantId}`);
+    }
+
+    name = `${product.name} - ${variantOption.value}`;
+    price = variantOption.price;
+    image = variant.images?.[0] || product.images[0] || null;
+    metadata = {
+      productId: productId,
+      variantId: variantId,
+      variantName: variantOption.value,
+    };
+  } else {
+    name = product.name;
+    price = product.price;
+    image = product.images[0] || null;
+    metadata = {
+      productId: productId,
+      variantId: null,
+    };
+  }
+
+  if (isNaN(price)) {
+    throw new Error(`Invalid price for product ID: ${productId}`);
+  }
 
   const productData = {
     name: name,
+    metadata: metadata,
   };
 
   if (image) {
@@ -91,7 +123,6 @@ const mapItemToLineItem = (item, products) => {
     quantity: item.quantity,
   };
 };
-
 // Route to create a checkout session
 router.post("/checkout", async (req, res) => {
   try {
@@ -101,16 +132,18 @@ router.post("/checkout", async (req, res) => {
       return res.status(400).send({ error: "No items provided" });
     }
 
-    const productNames = items.map((item) => item.name.split(" - ")[0]);
-    const products = await Products.find({ name: { $in: productNames } });
+    const productIds = items.map((item) => item.productId);
+    const products = await Products.find({ _id: { $in: productIds } });
 
     if (products.length === 0) {
       return res.status(400).send({ error: "No products found" });
     }
 
+    const lineItems = items.map((item) => mapItemToLineItem(item, products));
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
-      line_items: items.map((item) => mapItemToLineItem(item, products)),
+      line_items: lineItems,
       mode: "payment",
       success_url: `${YOUR_DOMAIN}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${YOUR_DOMAIN}/cancel`,
@@ -118,6 +151,9 @@ router.post("/checkout", async (req, res) => {
         allowed_countries: ["US", "CA"],
       },
       shipping_options: getShippingOptions(),
+      metadata: {
+        orderId: "unique_order_id",
+      },
     });
 
     res.json({ id: session.id });
@@ -127,7 +163,7 @@ router.post("/checkout", async (req, res) => {
   }
 });
 
-// Route to create a checkout session for existent customer
+// Route to create a checkout session for existent customer - not updated
 router.post("/create-checkout-session", async (req, res) => {
   const { items, userInfo, YOUR_DOMAIN, orderId } = req.body; // Accept orderId from the request
 
