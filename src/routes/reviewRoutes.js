@@ -2,21 +2,74 @@ import express from "express";
 import { ReviewModel } from "../models/reviewModel.js"; // Ensure this path is correct
 import { Products } from "../models/ProductModel.js";
 import { UserModel } from "../models/UserModel.js"; // Ensure this is the correct path
+import { Order } from "../models/OrderModel.js"; // Adjust the path as necessary
+import mongoose from "mongoose";
 
 const router = express.Router();
+
+// GET /reviews/hasPurchased/:productId - Check if a user has purchased the product
+router.get("/hasPurchased/:productId", async (req, res) => {
+  const { productId } = req.params;
+  const { userId } = req.query; // Get userId from query params
+
+  try {
+    // Check if the user has purchased the product or any of its variants
+    const hasPurchased = await userHasPurchasedProduct(userId, productId);
+
+    // Send the result back to the client
+    res.status(200).json({ hasPurchased });
+  } catch (error) {
+    console.error("Error checking purchase status:", error);
+    res.status(500).json({ message: "Error checking purchase status" });
+  }
+});
+
+async function userHasPurchasedProduct(userId, productId) {
+  try {
+    // Fetch all orders for the user
+    const orders = await Order.find({ user: userId });
+
+    // Iterate over each order
+    for (const order of orders) {
+      // Iterate over each item in the order
+      for (const item of order.items) {
+        // Check if the productId matches either the productId or the variantId
+        if (item.productId === productId || item.variantId === productId) {
+          console.log(`Product found in order:`, order);
+          return true;
+        }
+      }
+    }
+
+    console.log(`No order found for this user and product.`);
+    return false;
+  } catch (error) {
+    console.error("Error checking purchase status:", error);
+    throw error;
+  }
+}
 
 // POST /reviews/addReview - Add a new review or reply
 router.post("/addReview", async (req, res) => {
   const { productId, userId, rating, comment, replyTo } = req.body;
 
   try {
+    // Check if the user has purchased the product
+    const hasPurchased = await userHasPurchasedProduct(userId, productId);
+    if (!hasPurchased) {
+      return res.status(403).json({
+        message:
+          "Only users who have purchased this product can write a review.",
+      });
+    }
+
     // Create a new review or reply
     let review = new ReviewModel({
       product: productId,
-      user: userId, // Tie the review to the user
-      rating: replyTo ? null : rating, // Only provide a rating if it's a top-level review
+      user: userId,
+      rating: replyTo ? null : rating,
       comment,
-      parentReview: replyTo || null, // Associate with parentReview if it's a reply
+      parentReview: replyTo || null,
     });
 
     await review.save();
@@ -45,12 +98,21 @@ router.post("/addReply", async (req, res) => {
   const { productId, userId, comment, parentReviewId } = req.body;
 
   try {
+    // Check if the user has purchased the product
+    const hasPurchased = await userHasPurchasedProduct(userId, productId);
+    if (!hasPurchased) {
+      return res.status(403).json({
+        message:
+          "Only users who have purchased this product can reply to a review.",
+      });
+    }
+
     // Create a new reply
     let reply = new ReviewModel({
       product: productId,
-      user: userId, // Tie the reply to the user
+      user: userId,
       comment,
-      parentReview: parentReviewId, // Associate with parent review
+      parentReview: parentReviewId,
       rating: null, // Replies don't have ratings
     });
 
@@ -158,23 +220,33 @@ router.delete("/delete/:reviewId", async (req, res) => {
       return res.status(404).json({ message: "Review not found" });
     }
 
+    const userId = review.user;
+    const productId = review.product;
+
     // If the review is a reply, remove it from the parent's replies array
-    if (review.replies.length === 0) {
-      const parentReview = await ReviewModel.findOne({ replies: reviewId });
+    if (review.parentReview) {
+      const parentReview = await ReviewModel.findById(review.parentReview);
       if (parentReview) {
         parentReview.replies.pull(review._id);
         await parentReview.save();
       }
     } else {
       // If the review is not a reply, handle nested replies
-      const product = await Products.findById(review.product);
-      if (product) {
-        product.reviews.pull(review._id);
-        await product.save();
-      }
-
-      // Delete all nested replies
       await ReviewModel.deleteMany({ _id: { $in: review.replies } });
+    }
+
+    // Remove the review from the user's reviews array
+    const user = await UserModel.findById(userId);
+    if (user) {
+      user.reviews.pull(review._id);
+      await user.save();
+    }
+
+    // Remove the review from the product's reviews array
+    const product = await Products.findById(productId);
+    if (product) {
+      product.reviews.pull(review._id);
+      await product.save();
     }
 
     // Finally, delete the review itself
