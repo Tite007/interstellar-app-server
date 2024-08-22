@@ -74,6 +74,16 @@ router.post("/addReview", async (req, res) => {
 
     await review.save();
 
+    // Update the user model to include the review
+    await UserModel.findByIdAndUpdate(userId, {
+      $push: { reviews: review._id },
+    });
+
+    // Update the product model to include the review
+    await Products.findByIdAndUpdate(productId, {
+      $push: { reviews: review._id },
+    });
+
     // If the review is a reply to another review
     if (replyTo) {
       const parentReview = await ReviewModel.findById(replyTo);
@@ -92,7 +102,6 @@ router.post("/addReview", async (req, res) => {
     res.status(500).json({ message: "Error adding review" });
   }
 });
-
 // POST /replies/addReply - Add a reply to an existing review
 router.post("/addReply", async (req, res) => {
   const { productId, userId, comment, parentReviewId } = req.body;
@@ -192,17 +201,21 @@ router.get("/getByUser/:userId", async (req, res) => {
         path: "reviews",
         select: "product rating comment time replies", // Select only these fields from the reviews
         populate: [
-          { path: "product", select: "name -_id" }, // Populate only the name field from the product, exclude _id if not needed
+          { path: "product", select: "name _id" }, // Populate product details correctly
           {
             path: "replies",
             select: "comment user time",
-            populate: { path: "user", select: "name email -_id" },
+            populate: { path: "user", select: "name email _id" },
           }, // Populate replies and their user details
         ],
       })
       .select("name lastName email"); // Only select these fields from the user
 
-    res.status(200).json(user);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(user.reviews); // Return only the reviews
   } catch (error) {
     console.error("Error fetching user with reviews:", error);
     res.status(500).json({ message: "Error fetching user with reviews" });
