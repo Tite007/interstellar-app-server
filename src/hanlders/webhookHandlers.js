@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import fetch from "node-fetch";
 import { Products } from "../models/ProductModel.js";
 import mongoose from "mongoose";
+import { sendEmail } from "../utils/email.js"; // Import the email utility
+import { generateOrderConfirmationEmail } from "../utils/emailTemplates.js"; // Import the email template utility
 
 dotenv.config();
 
@@ -13,20 +15,26 @@ export const handleCheckoutSessionCompleted = async (session) => {
     console.log("Session data:", session);
 
     const customer = await findOrCreateCustomer(session.customer_details);
-    const lineItems = await getLineItems(session.id);
+    const lineItems = await getLineItemsWithProductDetails(session.id); // Get line items with product details
     const orderData = await buildOrderData(session, customer, lineItems);
 
     const order = await createOrder(orderData);
     console.log("Order created:", order);
 
     await updateProductStock(lineItems);
+
+    // Generate and send the confirmation email
+    const { emailSubject, emailText, emailHtml } =
+      generateOrderConfirmationEmail(customer, orderData, lineItems);
+    await sendEmail(orderData.user, emailSubject, emailText, emailHtml);
+    console.log("Order confirmation email sent.");
   } catch (error) {
     console.error("Error handling checkout session completed:", error);
     throw error;
   }
 };
 
-//Create a new customer if one doesn't exist
+// Create a new customer if one doesn't exist
 const findOrCreateCustomer = async (customerDetails) => {
   if (!customerDetails) {
     throw new Error("Missing customer details in session");
@@ -42,34 +50,60 @@ const findOrCreateCustomer = async (customerDetails) => {
   }
 };
 
-//Retrieve line items from the session
-const getLineItems = async (sessionId) => {
-  const lineItemsResponse = await stripe.checkout.sessions.listLineItems(
-    sessionId,
-    {
-      expand: ["data.price.product"],
-    }
-  );
-  return lineItemsResponse.data;
+// Retrieve line items from the session
+const getLineItemsWithProductDetails = async (sessionId) => {
+  try {
+    // Retrieve line items from the session
+    const lineItemsResponse = await stripe.checkout.sessions.listLineItems(
+      sessionId,
+      {
+        expand: ["data.price.product"], // Expand to get product details
+      }
+    );
+
+    // Fetch product details for each line item
+    const lineItems = await Promise.all(
+      lineItemsResponse.data.map(async (item) => {
+        const productId =
+          typeof item.price.product === "string"
+            ? item.price.product
+            : item.price.product.id; // Ensure we have a string ID
+
+        const product = await stripe.products.retrieve(productId);
+
+        return {
+          ...item,
+          productDetails: product, // Attach the fetched product details, including images
+        };
+      })
+    );
+
+    return lineItems;
+  } catch (error) {
+    console.error("Error fetching line items or product details:", error);
+    throw error; // Rethrow to handle this in your higher-level function
+  }
 };
 
-//Build order data to send to your order creation API
+// Build order data to send to your order creation API
 const buildOrderData = async (session, customer, lineItems) => {
   return {
     user: customer.email,
     items: lineItems.map((item) => {
-      const productId = item.price.product.metadata.productId;
-      const variantId = item.price.product.metadata.variantId || null;
+      const productId = item.productDetails.metadata.productId;
+      const variantId = item.productDetails.metadata.variantId || null;
 
       return {
         productId: productId, // Use the productId directly as a string
         variantId: variantId, // Use the variantId directly as a string
         name: item.description,
-        variantName: item.price.product.metadata.variantName || null,
+        variantName: item.productDetails.metadata.variantName || null,
         quantity: item.quantity,
         price: item.amount_total / item.quantity / 100,
         total: item.amount_total / 100,
-        image: item.price.product.images ? item.price.product.images[0] : null,
+        image: item.productDetails.images
+          ? item.productDetails.images[0]
+          : null, // Correctly access the image
       };
     }),
     shippingInfo: {
@@ -86,7 +120,7 @@ const buildOrderData = async (session, customer, lineItems) => {
   };
 };
 
-//Create an order in your database
+// Create an order in your database
 const createOrder = async (orderData) => {
   try {
     // Send order data to your order creation API
