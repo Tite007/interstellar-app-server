@@ -3,6 +3,7 @@ import { Order } from "../models/OrderModel.js"; // Adjust the path as necessary
 import mongoose from "mongoose";
 import { Counter } from "../models/CounterModel.js"; // Adjust the path as necessary
 import { UserModel } from "../models/UserModel.js";
+import { sendFulfillmentEmail } from "../utils/fulfillmentEmail.js"; // Adjust the path to your email utility
 
 const router = express.Router();
 
@@ -30,27 +31,22 @@ router.put("/updateOrderTracking/:id", async (req, res) => {
   }
 });
 
-// Route to update order tracking information
-router.put("/updateOrderTracking/:id", async (req, res) => {
+// Route to send fulfillment email
+router.post("/sendFulfillmentEmail/:id", async (req, res) => {
   const { id } = req.params;
-  const { trackingNumber, carrier } = req.body;
+  const { trackingNumber, carrier, userDetails } = req.body;
 
   try {
-    const updatedOrder = await Order.findByIdAndUpdate(
-      id,
-      { trackingNumber, carrier, fulfillmentStatus: "fulfilled" },
-      { new: true }
-    );
-
-    if (!updatedOrder) {
+    const order = await Order.findById(id);
+    if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    res.status(200).json(updatedOrder);
+    await sendFulfillmentEmail({ userDetails, trackingNumber, carrier });
+    res.status(200).json({ message: "Fulfillment email sent successfully" });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Failed to update order", error: error.message });
+    console.error("Error sending fulfillment email:", error);
+    res.status(500).json({ message: "Failed to send fulfillment email" });
   }
 });
 
