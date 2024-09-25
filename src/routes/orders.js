@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { Counter } from "../models/CounterModel.js"; // Adjust the path as necessary
 import { UserModel } from "../models/UserModel.js";
 import { sendFulfillmentEmail } from "../utils/fulfillmentEmail.js"; // Adjust the path to your email utility
+import { Products } from "../models/ProductModel.js"; // Import product model
 
 const router = express.Router();
 
@@ -32,23 +33,61 @@ router.put("/updateOrderTracking/:id", async (req, res) => {
 });
 
 // Route to send fulfillment email
-router.post("/sendFulfillmentEmail/:id", async (req, res) => {
-  const { id } = req.params;
-  const { trackingNumber, carrier, userDetails } = req.body;
-
+router.post("/sendFulfillmentEmail/:orderId", async (req, res) => {
   try {
-    const order = await Order.findById(id);
+    const { orderId } = req.params;
+    const { userDetails, trackingNumber, carrier, orderData } = req.body;
+
+    if (!userDetails || !trackingNumber || !carrier || !orderData) {
+      return res.status(400).json({ error: "Missing required data" });
+    }
+
+    // Fetch the order from the database to get the product IDs
+    const order = await Order.findById(orderId);
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    await sendFulfillmentEmail({ userDetails, trackingNumber, carrier });
+    // Fetch product details for each item in the order
+    const lineItemsWithImages = await Promise.all(
+      order.items.map(async (item) => {
+        // Fetch the product details by productId
+        const product = await Products.findById(item.productId).exec();
+        if (!product) {
+          throw new Error(`Product with ID ${item.productId} not found`);
+        }
+
+        // Return the item with product images
+        return {
+          ...item.toObject(), // Convert the Mongoose object to a plain JS object
+          productDetails: {
+            ...item.productDetails,
+            images: product.images, // Add the images from the product
+          },
+        };
+      })
+    );
+
+    // Fulfillment status (you can pass this from the frontend or derive it from the order)
+    const fulfillmentStatus = "Shipped"; // Example status, adjust as needed
+
+    // Call the sendFulfillmentEmail function with the updated lineItems containing images
+    await sendFulfillmentEmail({
+      userDetails,
+      trackingNumber,
+      carrier,
+      orderData,
+      lineItems: lineItemsWithImages, // Updated lineItems with product images
+      fulfillmentStatus,
+    });
+
     res.status(200).json({ message: "Fulfillment email sent successfully" });
   } catch (error) {
     console.error("Error sending fulfillment email:", error);
-    res.status(500).json({ message: "Failed to send fulfillment email" });
+    res.status(500).json({ error: "Failed to send fulfillment email" });
   }
 });
+
 
 // Route to create a new order
 router.post("/create-order", async (req, res) => {
