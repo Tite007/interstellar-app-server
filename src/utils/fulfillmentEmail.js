@@ -26,7 +26,7 @@ export const sendFulfillmentEmail = async ({
   `;
 
   // Add personalized greeting with user's name
-  const userName = `${userDetails.firstName || "Customer"} ${
+  const userName = `${userDetails.name || "Customer"} ${
     userDetails.lastName || ""
   }`.trim();
 
