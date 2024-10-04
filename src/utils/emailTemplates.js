@@ -39,223 +39,137 @@ export const generateOrderConfirmationEmail = (
   `;
 
   const emailHtml = `
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Purchase Confirmation</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-            background-color: #f9f9f9;
-          }
-          .container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 10px;
-            background-color: #ffffff;
-          }
-          h1 {
-            font-size: 24px;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 20px;
-          }
-          .item {
-            border: 1px solid #ddd;
-            margin-bottom: 20px;
-            background-color: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-          }
-          .item-image img {
-            width: 100%;
-            max-width: 300px;
-            height: auto;
-            margin-bottom: 15px;
-          }
-          .item-details {
-            width: 100%;
-            padding: 15px;
-            text-align: center;
-          }
-          .item-details h2 {
-            font-size: 20px;
-            margin: 0 0 10px;
-          }
-          .item-details p {
-            margin: 0 0 5px;
-          }
-          .item-details p:last-of-type {
-            margin-bottom: 10px;
-          }
-          .item-details .price {
-            font-size: 18px;
-            font-weight: bold;
-          }
-          .order-summary, .order-total {
-            background-color: #fff;
-            padding: 15px;
-            border: 1px solid #ddd;
-          }
-          .order-summary p, .order-total p {
-            display: flex;
-            justify-content: space-between;
-            margin: 5px 0;
-          }
-          .order-summary p {
-            display: flex;
-            justify-content: space-between;
-          }
-          .order-total {
-            border-top: 2px solid #333;
-            margin-top: 20px;
-            padding-top: 10px;
-          }
-          .order-total p {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-          }
-          .total-text {
-            font-size: 20px;
-            font-weight: bold;
-          }
-          .total-price {
-            font-size: 24px;
-            font-weight: bold;
-          }
-          .currency {
-            font-size: 18px;
-          }
-          .shipping-address {
-            margin-top: 20px;
-            background-color: #fff;
-            padding: 15px;
-            border: 1px solid #ddd;
-          }
-          .shipping-address h3 {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 10px;
-          }
-          /* Ensuring proper spacing between columns on large screens */
-          @media only screen and (min-width: 600px) {
-            .order-summary p, .order-total p {
-              justify-content: space-between;
-              display: flex;
-            }
-            .order-summary p span {
-              width: 80%; /* Ensure both sides have enough space */
-            }
-            .total-text {
-              text-align: left;
-              width: 50%;
-            }
-            .total-price {
-              text-align: right;
-              width: 50%;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-        <h1>Order Confirmation</h1>
-        <p>Thank you for your order, ${customer.name}!</p>
-        <p>Here are the details of your purchase:</p>
-          <h1>Items Purchased</h1>
-          
-          ${lineItems
-            .map(
-              (item) => `
-          <div class="item">
-              <div class="item-image">
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Order Confirmation</title>
+    </head>
+    <body style="font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif; line-height: 1.6; color: #333; background-color: #f6f9fc; padding: 20px; margin: 0;">
+      <table cellpadding="0" cellspacing="0" style="max-width: 600px; width: 100%; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+        <tr>
+          <td style="padding: 40px 30px; background-color: #4F46E5; text-align: center;">
+            <h1 style="color: #ffffff; font-size: 28px; margin: 0;">Order Confirmation</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 30px;">
+            <p style="font-size: 16px; margin-bottom: 20px;">Thank you for your order, ${
+              customer.name
+            }!</p>
+            <h2 style="font-size: 20px; border-bottom: 2px solid #4F46E5; padding-bottom: 10px; margin-bottom: 20px;">Order Details</h2>
+
+            ${lineItems
+              .map(
+                (item, index) => `
+            <table cellpadding="0" cellspacing="0" style="width: 100%; margin-bottom: 20px; border-bottom: ${
+              index < lineItems.length - 1 ? "1px solid #e0e0e0" : "none"
+            };">
+              <tr>
+                <td style="padding: 0 0 20px 0; vertical-align: top;">
                   <img src="${item.productDetails.images[0]}" alt="${
-                item.description
-              }">
-              </div>
-              <div class="item-details">
-                  <h2>${item.description}</h2>
-                  <p>${item.productDetails.color || "N/A"}</p>
-                  <p>Size: ${item.productDetails.size || "N/A"} Qty: ${
-                item.quantity
-              }</p>
-                  <p>${item.productDetails.sku || "N/A"}</p>
-                  <p class="price">$${(item.price.unit_amount / 100).toFixed(
-                    2
-                  )}</p>
-              </div>
-          </div>
-          `
-            )
-            .join("")}
-    
-          <div class="order-summary">
-              <p>
-                  <span>Subtotal (${lineItems.length} item${
-    lineItems.length > 1 ? "s" : ""
-  })</span>
-                  <span>$${orderData.subtotal.toFixed(2)}</span>
+                  item.description
+                }" style="width: 100px; height: auto; border-radius: 4px;">
+                </td>
+                <td style="padding: 0 0 20px 20px; vertical-align: top;">
+                  <h3 style="font-size: 18px; margin: 0 0 10px 0;">${
+                    item.description
+                  }</h3>
+                  <p style="font-size: 14px; color: #666; margin: 0 0 5px 0;">
+                    Color: ${item.productDetails.color || "N/A"} | Size: ${
+                  item.productDetails.size || "N/A"
+                }
+                  </p>
+                  <p style="font-size: 14px; color: #666; margin: 0 0 5px 0;">
+                    Quantity: ${item.quantity} | SKU: ${
+                  item.productDetails.sku || "N/A"
+                }
+                  </p>
+                  <p style="font-size: 16px; font-weight: bold; margin: 10px 0 0 0;">
+                    $${(item.price.unit_amount / 100).toFixed(2)}
+                  </p>
+                </td>
+              </tr>
+            </table>
+            `
+              )
+              .join("")}
+
+            <table cellpadding="0" cellspacing="0" style="width: 100%; margin-top: 20px;">
+              <tr>
+                <td style="padding: 10px 0; border-top: 1px solid #e0e0e0;">Subtotal</td>
+                <td style="padding: 10px 0; text-align: right; border-top: 1px solid #e0e0e0;">
+                  $${orderData.subtotal.toFixed(2)}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0;">Shipping</td>
+                <td style="padding: 10px 0; text-align: right;">
+                  $${orderData.shippingInfo.shippingCost.toFixed(2)}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0;">GST/HST</td>
+                <td style="padding: 10px 0; text-align: right;">
+                  $${(orderData.totalPrice * 0.05).toFixed(2)}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0;">PST</td>
+                <td style="padding: 10px 0; text-align: right;">
+                  $${(orderData.totalPrice * 0.07).toFixed(2)}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 15px 0; font-size: 18px; font-weight: bold; border-top: 2px solid #4F46E5;">
+                  Total
+                </td>
+                <td style="padding: 15px 0; font-size: 18px; font-weight: bold; text-align: right; border-top: 2px solid #4F46E5;">
+                  $${orderData.totalPrice.toFixed(2)} CAD
+                </td>
+              </tr>
+            </table>
+
+            <div style="margin-top: 30px; padding: 20px; background-color: #f8fafc; border-radius: 4px;">
+              <h3 style="font-size: 18px; margin: 0 0 10px 0;">Shipping Information</h3>
+              <p style="font-size: 14px; margin: 0 0 5px 0;">
+                ${orderData.shippingInfo.address.line1}<br>
+                ${orderData.shippingInfo.address.city}, ${
+    orderData.shippingInfo.address.state
+  } ${orderData.shippingInfo.address.postal_code}<br>
+                ${orderData.shippingInfo.address.country}
               </p>
-              <p>
-                  <span>Standard Shipping</span>
-                  <span>$${orderData.shippingInfo.shippingCost.toFixed(
-                    2
-                  )}</span>
+              <p style="font-size: 14px; margin: 10px 0 0 0;">
+                <strong>Shipping Method:</strong> Standard Shipping<br>
+                <strong>Estimated Delivery:</strong> ${new Date(
+                  Date.now() + 7 * 24 * 60 * 60 * 1000
+                ).toLocaleDateString("en-US", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
               </p>
-              <p>
-                  <span>GST/HST</span>
-                  <span>$${(orderData.totalPrice * 0.05).toFixed(2)}</span>
-              </p>
-              <p>
-                  <span>PST</span>
-                  <span>$${(orderData.totalPrice * 0.07).toFixed(2)}</span>
-              </p>
-          </div>
-    
-          <div class="order-total">
-              <p>
-                  <span class="total-text">Order Total</span>
-                  <span>
-                      <span class="total-price">$${orderData.totalPrice.toFixed(
-                        2
-                      )}</span>
-                      <br>
-                      <span class="currency">CAD</span>
-                  </span>
-              </p>
-          </div>
-    
-          <div class="shipping-address">
-              <h3>Shipping Address:</h3>
-              <p>
-                  ${orderData.shippingInfo.address.line1},<br>
-                  ${orderData.shippingInfo.address.city},<br>
-                  ${orderData.shippingInfo.address.state},<br>
-                  ${orderData.shippingInfo.address.postal_code},<br>
-                  ${orderData.shippingInfo.address.country}
-              </p>
-              <p>Shipping Method: Standard Shipping</p>
-              <p>Estimated Delivery: ${new Date(
-                Date.now() + 7 * 24 * 60 * 60 * 1000
-              ).toLocaleDateString("en-US", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}</p>
-          </div>
-    
-          <p>Your order will be shipped soon. You will receive a confirmation email when your order is on its way.</p>
-          <p>Thank you for shopping with us!</p>
-        </div>
-      </body>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 30px; text-align: center;">
+              Your order will be shipped soon. You will receive a confirmation email when your order is on its way.
+            </p>
+            <p style="font-size: 16px; font-weight: bold; margin-top: 20px; text-align: center;">
+              Thank you for shopping with us!
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 20px; background-color: #f6f9fc; text-align: center;">
+            <p style="font-size: 12px; color: #666; margin: 0;">
+              If you have any questions, please contact our customer support.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </body>
     </html>
   `;
 
