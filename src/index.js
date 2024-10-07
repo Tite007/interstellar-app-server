@@ -15,6 +15,7 @@ import { paymentRouter } from "./routes/paymentRoutes.js";
 import { contentRouter } from "./routes/contentRoutes.js";
 import { Products } from "./models/ProductModel.js"; // Ensure this import is correct
 import { reviewRouter } from "./routes/reviewRoutes.js"; // Import the review router
+import { categoryRouter } from "./routes/categoriesRoutes.js";
 
 dotenv.config();
 
@@ -53,6 +54,8 @@ app.use("/content", contentRouter);
 
 // Use the reviewRouter for all '/reviews' routes
 app.use("/reviews", reviewRouter); // Add this line
+
+app.use("/categories", categoryRouter);
 
 // Connect to MongoDB
 mongoose
