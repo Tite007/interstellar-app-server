@@ -3,12 +3,12 @@ import { Products } from "../models/ProductModel.js";
 
 const router = express.Router();
 
-// Route to add a new product
 router.post("/addProduct", async (req, res) => {
   const {
     name,
     description,
-    category,
+    parentCategory,
+    subcategory,
     sku,
     price,
     stock,
@@ -30,11 +30,15 @@ router.post("/addProduct", async (req, res) => {
     technicalData,
   } = req.body;
 
+  // Debugging: Log the request body to ensure data is passed correctly
+  console.log("Request Body:", req.body);
+
   try {
     const newProduct = new Products({
       name,
       description,
-      category,
+      parentCategory,
+      subcategory,
       sku,
       price,
       stock,
@@ -56,12 +60,15 @@ router.post("/addProduct", async (req, res) => {
       technicalData,
     });
 
+    // Attempt to save the product
     await newProduct.save();
+
+    // Respond with success
     res
       .status(201)
       .json({ message: "Product added successfully", product: newProduct });
   } catch (error) {
-    console.error("Error adding product:", error);
+    console.error("Error adding product:", error.message); // Log the error message
     res
       .status(500)
       .json({ message: "Failed to add product", error: error.message });
@@ -89,8 +96,6 @@ router.delete("/deleteProduct/:id", async (req, res) => {
 router.put("/updateProduct/:id", async (req, res) => {
   const { id } = req.params;
   const updateData = req.body;
-
-  console.log("Received update data:", JSON.stringify(updateData, null, 2));
 
   try {
     const updatedProduct = await Products.findByIdAndUpdate(id, updateData, {

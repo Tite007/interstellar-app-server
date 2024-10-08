@@ -24,9 +24,18 @@ const variantSchema = new mongoose.Schema({
 const productsSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, required: true },
-  category: { type: String },
+  parentCategory: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Category",
+    required: true,
+  },
+  subcategory: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Category",
+    required: false,
+  },
   sku: { type: String, required: true },
-  stripeProductId: { type: String, unique: true }, // Parent Stripe Product ID
+  stripeProductId: { type: String }, // Allows null values without uniqueness enforcement
   price: { type: Number, required: true, min: 0 },
   costPrice: { type: Number, required: true, min: 0 },
   profit: { type: Number, min: 0, required: true },
@@ -39,7 +48,7 @@ const productsSchema = new mongoose.Schema({
   currentStock: { type: Number, min: 0 },
   lowStockLevel: { type: Number, min: 0 },
   stock: { type: Number, min: 0 },
-  size: { type: String }, // Handle any size value
+  size: { type: String },
   images: [{ type: String }],
   subtitle: { type: String },
   compareAtPrice: { type: Number, min: 0 },
@@ -47,7 +56,7 @@ const productsSchema = new mongoose.Schema({
   seoDescription: { type: String },
   seoKeywords: { type: String },
   time: { type: Date, default: Date.now },
-  variants: [variantSchema], // List of variants
+  variants: [variantSchema],
   roastLevel: { type: String },
   technicalData: {
     country: { type: String },
@@ -58,7 +67,7 @@ const productsSchema = new mongoose.Schema({
     processingMethod: { type: String },
     tasteNotes: { type: String },
   },
-  reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: "Review" }], // Correctly placed reviews field
+  reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: "Review" }],
 });
 
 // Adding an index to the sku field for faster queries
