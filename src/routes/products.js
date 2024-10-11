@@ -1,5 +1,6 @@
 import express from "express";
 import { Products } from "../models/ProductModel.js";
+import { Category } from "../models/categoriesModel.js"; // Category model
 
 const router = express.Router();
 
@@ -314,6 +315,28 @@ router.put("/updateTechnicalData/:id", async (req, res) => {
       message: "Failed to update technical data",
       error: error.message,
     });
+  }
+});
+
+// Fetch products by subcategory
+router.get("/products/bySubcategory/:subcategoryId", async (req, res) => {
+  const { subcategoryId } = req.params;
+
+  try {
+    const products = await Products.find({ subcategory: subcategoryId });
+
+    if (!products || products.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No products found for this subcategory" });
+    }
+
+    res.status(200).json(products);
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to fetch products", error: error.message });
   }
 });
 

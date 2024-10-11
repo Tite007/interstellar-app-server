@@ -90,5 +90,31 @@ router.delete("/deleteCategory/:id", async (req, res) => {
   }
 });
 
+router.get("/categories/:name", async (req, res) => {
+  const { name } = req.params;
+
+  try {
+    // Find the parent category by name (case insensitive)
+    const category = await Category.findOne({
+      name: { $regex: new RegExp(`^${name}$`, "i") }, // Case-insensitive match
+    }).exec();
+
+    if (!category) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+
+    // Fetch subcategories (if any)
+    const subcategories = await Category.find({ parent: category._id }).exec();
+
+    // Respond with both the parent category and its subcategories
+    res.status(200).json({
+      category, // Parent category details
+      subcategories, // Subcategories under this parent
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Correctly export the router
 export const categoryRouter = router;
