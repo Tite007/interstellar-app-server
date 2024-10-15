@@ -3,7 +3,6 @@ import { Products } from "../models/ProductModel.js";
 import { Category } from "../models/categoriesModel.js"; // Category model
 
 const router = express.Router();
-
 router.post("/addProduct", async (req, res) => {
   const {
     name,
@@ -29,6 +28,8 @@ router.post("/addProduct", async (req, res) => {
     variants,
     roastLevel,
     technicalData,
+    brand, // Added brand
+    expirationDate, // Added expiration date
   } = req.body;
 
   // Debugging: Log the request body to ensure data is passed correctly
@@ -59,6 +60,8 @@ router.post("/addProduct", async (req, res) => {
       variants,
       roastLevel,
       technicalData,
+      brand, // Include brand in new product creation
+      expirationDate, // Include expiration date in new product creation
     });
 
     // Attempt to save the product
@@ -337,6 +340,114 @@ router.get("/products/bySubcategory/:subcategoryId", async (req, res) => {
     res
       .status(500)
       .json({ message: "Failed to fetch products", error: error.message });
+  }
+});
+
+// Route to search products, categories, and subcategories by name, brand, category, and keywords
+router.get("/searchProducts", async (req, res) => {
+  try {
+    const {
+      name,
+      category,
+      brand,
+      minPrice,
+      maxPrice,
+      page = 1,
+      limit = 10,
+      sortBy = "name",
+      sortOrder = "asc",
+    } = req.query;
+
+    // Create a query object that will hold all conditions
+    let query = {};
+
+    // If the product name is provided, search using regex for partial matches
+    if (name) {
+      query.name = { $regex: name, $options: "i" }; // Case-insensitive
+    }
+
+    // If the category is provided, search by category or subcategory
+    if (category) {
+      const matchedCategories = await Category.find({
+        name: { $regex: new RegExp(category, "i") }, // Case-insensitive match for categories
+      });
+
+      // If no categories are found, return an empty result
+      if (!matchedCategories.length) {
+        return res.status(200).json({
+          products: [],
+          categories: [],
+          subcategories: [],
+          totalProducts: 0,
+          totalPages: 1,
+          currentPage: page,
+        });
+      }
+
+      // Collect category IDs and subcategory IDs
+      const categoryIds = matchedCategories.map((cat) => cat._id);
+      const subcategoryIds = matchedCategories.flatMap((cat) =>
+        cat.ancestors.concat(cat._id)
+      );
+
+      // Match products that belong to either the category or subcategory
+      query.$or = [
+        { parentCategory: { $in: categoryIds } }, // Parent category match
+        { subcategory: { $in: subcategoryIds } }, // Subcategory match
+      ];
+    }
+
+    // If the brand is provided, match it exactly or partially
+    if (brand) {
+      query.brand = { $regex: brand, $options: "i" }; // Partial match for brand
+    }
+
+    // If a price range is provided, filter by price
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = parseFloat(minPrice); // Price greater than or equal to minPrice
+      if (maxPrice) query.price.$lte = parseFloat(maxPrice); // Price less than or equal to maxPrice
+    }
+
+    // Sorting
+    const sortOption = {};
+    sortOption[sortBy] = sortOrder === "asc" ? 1 : -1; // Sort order based on query params
+
+    // Pagination: Calculate how many items to skip
+    const skip = (page - 1) * limit;
+
+    // Perform the search query in MongoDB with pagination, sorting, and population
+    const products = await Products.find(query)
+      .populate("parentCategory") // Populate the parent category
+      .populate("subcategory") // Populate the subcategory
+      .sort(sortOption) // Apply sorting
+      .skip(skip) // Pagination: Skip records
+      .limit(parseInt(limit)); // Limit number of results
+
+    // Get the total count of products (without pagination)
+    const totalProducts = await Products.countDocuments(query);
+
+    // Fetch matching categories based on search term (for autocomplete)
+    const categories = await Category.find({
+      name: { $regex: new RegExp(name, "i") },
+    })
+      .populate("parent")
+      .exec();
+
+    // Return the results with categories and subcategories
+    res.status(200).json({
+      products,
+      categories: categories.filter((cat) => !cat.parent), // Only return parent categories
+      subcategories: categories.filter((cat) => cat.parent), // Only return subcategories
+      totalProducts,
+      totalPages: Math.ceil(totalProducts / limit),
+      currentPage: parseInt(page),
+    });
+  } catch (error) {
+    console.error("Error performing search:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to perform search", error: error.message });
   }
 });
 

@@ -68,6 +68,8 @@ const productsSchema = new mongoose.Schema({
     tasteNotes: { type: String },
   },
   reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: "Review" }],
+  brand: { type: String }, // Added brand field
+  expirationDate: { type: Date }, // Added expiration date field
 });
 
 // Adding an index to the sku field for faster queries
