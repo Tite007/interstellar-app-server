@@ -16,6 +16,7 @@ import { contentRouter } from "./routes/contentRoutes.js";
 import { Products } from "./models/ProductModel.js"; // Ensure this import is correct
 import { reviewRouter } from "./routes/reviewRoutes.js"; // Import the review router
 import { categoryRouter } from "./routes/categoriesRoutes.js";
+import { expirationRouter } from "./routes/trackExpiration.js"; // Import the expiration router
 
 dotenv.config();
 
@@ -56,6 +57,9 @@ app.use("/content", contentRouter);
 app.use("/reviews", reviewRouter); // Add this line
 
 app.use("/categories", categoryRouter);
+
+// Use the expiration router for expiration-related routes
+app.use("/expiration", expirationRouter); // Add this line
 
 // Connect to MongoDB
 mongoose
