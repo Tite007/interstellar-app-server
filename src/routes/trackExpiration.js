@@ -64,6 +64,7 @@ router.get("/trackExpiration", async (req, res) => {
       }
 
       return {
+        _id: product._id, // Include the _id field here
         name: product.name,
         category: product.parentCategory?.name || "N/A",
         subcategory: product.subcategory?.name || "N/A",

@@ -88,7 +88,6 @@ router.post("/sendFulfillmentEmail/:orderId", async (req, res) => {
   }
 });
 
-
 // Route to create a new order
 router.post("/create-order", async (req, res) => {
   console.log("Request body:", req.body);
@@ -208,6 +207,11 @@ router.delete("/deleteOrder/:id", async (req, res) => {
 // Add new route to fetch top 10 most sold products
 router.get("/topProducts", async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1; // Default to page 1
+    const limit = 10; // Limit to 10 products per page
+    const skip = (page - 1) * limit; // Calculate how many documents to skip
+
+    // Get paginated top products
     const topProducts = await Order.aggregate([
       { $unwind: "$items" },
       {
@@ -228,15 +232,38 @@ router.get("/topProducts", async (req, res) => {
         },
       },
       { $sort: { totalSold: -1 } },
+      { $skip: skip }, // Skip records based on page number
+      { $limit: limit }, // Limit the number of results to 10
     ]);
 
-    console.log("Top Products:", topProducts); // Log for debugging
-    res.status(200).json(topProducts);
+    // Get total number of distinct products
+    const totalProductsCount = await Order.aggregate([
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.name",
+        },
+      },
+      {
+        $count: "totalProducts", // Count distinct products
+      },
+    ]);
+
+    const totalProducts =
+      totalProductsCount.length > 0 ? totalProductsCount[0].totalProducts : 0;
+    const totalPages = Math.ceil(totalProducts / limit); // Calculate total pages
+
+    res.status(200).json({
+      topProducts,
+      totalPages,
+      currentPage: page,
+    });
   } catch (error) {
     console.error("Failed to fetch top products:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to fetch top products", error: error.message });
+    res.status(500).json({
+      message: "Failed to fetch top products",
+      error: error.message,
+    });
   }
 });
 
