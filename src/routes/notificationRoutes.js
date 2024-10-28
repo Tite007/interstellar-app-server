@@ -82,7 +82,6 @@ router.delete("/:notificationId", async (req, res) => {
   }
 });
 
-// routes/notificationRoutes.js
 // Route to generate email content for a specific product notification
 router.post("/generate-email-content", async (req, res) => {
   const { customerName, productId } = req.body;
@@ -111,9 +110,17 @@ router.post("/generate-email-content", async (req, res) => {
     // Building product URL using BASE_URL from environment
     const productUrl = `${BASE_URL}/categories/${categoryName}/${subcategoryName}/${productName}?productId=${productId}`;
 
+    // Select an image for the product
+    const productImageUrl = product.images[0] || ""; // Assuming images[0] is the main image; adjust as needed
+
     // Generate email content
     const { emailSubject, emailText, emailHtml } =
-      generateProductAvailabilityEmail(customerName, product.name, productUrl);
+      generateProductAvailabilityEmail(
+        customerName,
+        product.name,
+        productUrl,
+        productImageUrl // Pass the image URL to the email generator
+      );
 
     res.status(200).json({ emailSubject, emailText, emailHtml });
   } catch (error) {
