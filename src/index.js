@@ -18,6 +18,7 @@ import { reviewRouter } from "./routes/reviewRoutes.js"; // Import the review ro
 import { categoryRouter } from "./routes/categoriesRoutes.js";
 import { expirationRouter } from "./routes/trackExpiration.js"; // Import the expiration router
 import { notificationRouter } from "./routes/notificationRoutes.js";
+import { taxCodeRouter } from "./routes/taxCodeRoutes.js"; // Ensure the path is correct
 
 dotenv.config();
 
@@ -63,6 +64,8 @@ app.use("/categories", categoryRouter);
 app.use("/expiration", expirationRouter); // Add this line
 
 app.use("/notifications", notificationRouter);
+
+app.use("/taxcodes", taxCodeRouter);
 
 // Connect to MongoDB
 mongoose

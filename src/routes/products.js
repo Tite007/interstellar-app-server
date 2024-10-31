@@ -1,8 +1,10 @@
 import express from "express";
 import { Products } from "../models/ProductModel.js";
 import { Category } from "../models/categoriesModel.js"; // Category model
+import { TaxCode } from "../models/taxCodeModel.js"; // Import the TaxCode model
 
 const router = express.Router();
+
 router.post("/addProduct", async (req, res) => {
   const {
     name,
@@ -28,14 +30,19 @@ router.post("/addProduct", async (req, res) => {
     variants,
     roastLevel,
     technicalData,
-    brand, // Added brand
-    expirationDate, // Added expiration date
+    brand,
+    expirationDate,
+    taxCode, // This is the stripeTaxCode directly
   } = req.body;
 
-  // Debugging: Log the request body to ensure data is passed correctly
-  console.log("Request Body:", req.body);
-
   try {
+    // Validate that the provided stripeTaxCode exists
+    const taxCodeDoc = await TaxCode.findOne({ stripeTaxCode: taxCode });
+    if (!taxCodeDoc) {
+      return res.status(400).json({ message: "Invalid stripe tax code" });
+    }
+
+    // Save only the stripeTaxCode in the product
     const newProduct = new Products({
       name,
       description,
@@ -60,19 +67,18 @@ router.post("/addProduct", async (req, res) => {
       variants,
       roastLevel,
       technicalData,
-      brand, // Include brand in new product creation
-      expirationDate, // Include expiration date in new product creation
+      brand,
+      expirationDate,
+      taxCode: taxCodeDoc.stripeTaxCode, // Save stripeTaxCode
     });
 
-    // Attempt to save the product
     await newProduct.save();
-
-    // Respond with success
-    res
-      .status(201)
-      .json({ message: "Product added successfully", product: newProduct });
+    res.status(201).json({
+      message: "Product added successfully",
+      product: newProduct,
+    });
   } catch (error) {
-    console.error("Error adding product:", error.message); // Log the error message
+    console.error("Error adding product:", error.message);
     res
       .status(500)
       .json({ message: "Failed to add product", error: error.message });
@@ -99,13 +105,22 @@ router.delete("/deleteProduct/:id", async (req, res) => {
 // Route to update a product by _id
 router.put("/updateProduct/:id", async (req, res) => {
   const { id } = req.params;
-  const updateData = req.body;
+  const { taxCode, ...updateData } = req.body; // taxCode should be stripeTaxCode now
 
   try {
+    // Ensure taxCode is valid
+    const taxCodeDoc = await TaxCode.findOne({ stripeTaxCode: taxCode });
+    if (!taxCodeDoc) {
+      return res.status(400).json({ message: "Invalid stripe tax code" });
+    }
+
+    updateData.taxCode = taxCode; // Save the stripeTaxCode directly
+
     const updatedProduct = await Products.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
     });
+
     if (!updatedProduct) {
       return res.status(404).json({ message: "Product not found" });
     }
@@ -130,6 +145,22 @@ router.get("/findProduct/:id", async (req, res) => {
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
+
+    // Fetch the full tax code details based on stripeTaxCode
+    if (product.taxCode) {
+      const taxCodeDoc = await TaxCode.findOne({
+        stripeTaxCode: product.taxCode,
+      });
+      if (taxCodeDoc) {
+        product._doc.taxCodeDetails = {
+          stripeTaxCode: taxCodeDoc.stripeTaxCode,
+          type: taxCodeDoc.type,
+          name: taxCodeDoc.name,
+          description: taxCodeDoc.description,
+        };
+      }
+    }
+
     res.status(200).json(product);
   } catch (error) {
     res

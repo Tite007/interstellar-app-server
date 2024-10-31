@@ -70,6 +70,7 @@ const productsSchema = new mongoose.Schema({
   reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: "Review" }],
   brand: { type: String }, // Added brand field
   expirationDate: { type: Date }, // Added expiration date field
+  taxCode: { type: String }, // Store stripeTaxCode directly
 });
 
 // Adding an index to the sku field for faster queries
