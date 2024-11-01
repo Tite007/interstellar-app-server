@@ -30,6 +30,7 @@ export const generateOrderConfirmationEmail = (
   }, ${orderData.shippingInfo.address.country}
     
     Subtotal: $${orderData.subtotal.toFixed(2)}
+    Tax: $${(orderData.taxAmount / 100).toFixed(2)}
     Shipping: $${orderData.shippingInfo.shippingCost.toFixed(2)}
     Total: $${orderData.totalPrice.toFixed(2)}
     
@@ -104,21 +105,15 @@ export const generateOrderConfirmationEmail = (
                 </td>
               </tr>
               <tr>
+                <td style="padding: 10px 0;">Tax</td>
+                <td style="padding: 10px 0; text-align: right;">
+                  $${(orderData.taxAmount / 100).toFixed(2)}
+                </td>
+              </tr>
+              <tr>
                 <td style="padding: 10px 0;">Shipping</td>
                 <td style="padding: 10px 0; text-align: right;">
                   $${orderData.shippingInfo.shippingCost.toFixed(2)}
-                </td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 0;">GST/HST</td>
-                <td style="padding: 10px 0; text-align: right;">
-                  $${(orderData.totalPrice * 0.05).toFixed(2)}
-                </td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 0;">PST</td>
-                <td style="padding: 10px 0; text-align: right;">
-                  $${(orderData.totalPrice * 0.07).toFixed(2)}
                 </td>
               </tr>
               <tr>

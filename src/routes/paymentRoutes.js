@@ -49,7 +49,7 @@ const getShippingOptions = () => [
   },
 ];
 
-// Function to map an products to a line item
+// Function to map a product to a line item with tax information
 const mapItemToLineItem = (item, products) => {
   const product = products.find((p) => p._id.toString() === item.productId);
   if (!product) {
@@ -58,8 +58,7 @@ const mapItemToLineItem = (item, products) => {
 
   const productId = item.productId;
   const variantId = item.variantId || null;
-
-  let name, price, image, metadata;
+  let name, price, image, metadata, taxCode;
 
   if (variantId) {
     const variant = product.variants.find((v) =>
@@ -81,6 +80,7 @@ const mapItemToLineItem = (item, products) => {
     name = `${product.name} - ${variantOption.value}`;
     price = variantOption.price;
     image = variant.images?.[0] || product.images[0] || null;
+    taxCode = product.taxCode;
     metadata = {
       productId: productId,
       variantId: variantId,
@@ -90,11 +90,20 @@ const mapItemToLineItem = (item, products) => {
     name = product.name;
     price = product.price;
     image = product.images[0] || null;
+    taxCode = product.taxCode;
     metadata = {
       productId: productId,
       variantId: null,
     };
   }
+
+  // Log the tax code and other product data for verification
+  console.log(`Mapping item to line item:
+    Product ID: ${productId}
+    Variant ID: ${variantId}
+    Name: ${name}
+    Price: ${price}
+    Tax Code: ${taxCode}`);
 
   if (isNaN(price)) {
     throw new Error(`Invalid price for product ID: ${productId}`);
@@ -103,6 +112,7 @@ const mapItemToLineItem = (item, products) => {
   const productData = {
     name: name,
     metadata: metadata,
+    tax_code: taxCode, // Include the tax code
   };
 
   if (image) {
@@ -114,6 +124,7 @@ const mapItemToLineItem = (item, products) => {
       currency: "usd",
       product_data: productData,
       unit_amount: Math.round(price * 100),
+      tax_behavior: "exclusive", // Set tax behavior to exclusive
     },
     adjustable_quantity: {
       enabled: true,
@@ -123,7 +134,8 @@ const mapItemToLineItem = (item, products) => {
     quantity: item.quantity,
   };
 };
-// Route to create a checkout session
+
+// Route to create a checkout session with tax calculation
 router.post("/checkout", async (req, res) => {
   try {
     const { items, YOUR_DOMAIN } = req.body;
@@ -141,6 +153,9 @@ router.post("/checkout", async (req, res) => {
 
     const lineItems = items.map((item) => mapItemToLineItem(item, products));
 
+    // Log the final lineItems array to verify the tax data before checkout session creation
+    console.log("Line items with tax information:", lineItems);
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: lineItems,
@@ -150,10 +165,11 @@ router.post("/checkout", async (req, res) => {
       shipping_address_collection: {
         allowed_countries: ["US", "CA"],
       },
-      shipping_options: getShippingOptions(),
+      shipping_options: getShippingOptions(), // Add shipping options if needed
       metadata: {
         orderId: "unique_order_id",
       },
+      automatic_tax: { enabled: true }, // Enable automatic tax calculation
     });
 
     res.json({ id: session.id });
