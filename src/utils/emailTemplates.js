@@ -12,27 +12,32 @@ export const generateOrderConfirmationEmail = (
     
     ${lineItems
       .map((item) => {
-        const price = item.price.unit_amount
+        const price = item.price?.unit_amount
           ? (item.price.unit_amount / 100).toFixed(2)
-          : "0.00";
-        const total = ((item.price.unit_amount * item.quantity) / 100).toFixed(
-          2
-        );
-        return `${item.quantity} x ${item.description} - $${price} (Total: $${total})`;
+          : "0.00"; // Fallback to "0.00" if price is undefined
+        const total = item.amount_total
+          ? (item.amount_total / 100).toFixed(2)
+          : "0.00"; // Fallback to "0.00" if total is undefined
+        const itemTax = item.amount_tax
+          ? (item.amount_tax / 100).toFixed(2)
+          : "0.00"; // Tax amount for each item
+        return `${item.quantity} x ${item.description} - $${price} (Tax: $${itemTax}) (Total: $${total})`;
       })
       .join("\n")}
     
     Shipping Address:
-    ${orderData.shippingInfo.address.line1}, ${
-    orderData.shippingInfo.address.city
-  }, ${orderData.shippingInfo.address.state}, ${
-    orderData.shippingInfo.address.postal_code
-  }, ${orderData.shippingInfo.address.country}
+    ${orderData.shippingInfo.address.line1 || ""}, ${
+    orderData.shippingInfo.address.city || ""
+  }, ${orderData.shippingInfo.address.state || ""}, ${
+    orderData.shippingInfo.address.postal_code || ""
+  }, ${orderData.shippingInfo.address.country || ""}
     
-    Subtotal: $${orderData.subtotal.toFixed(2)}
-    Tax: $${(orderData.taxAmount / 100).toFixed(2)}
-    Shipping: $${orderData.shippingInfo.shippingCost.toFixed(2)}
-    Total: $${orderData.totalPrice.toFixed(2)}
+    Subtotal: $${orderData.subtotal?.toFixed(2) || "0.00"}
+    Tax: $${
+      lineItems.reduce((acc, item) => acc + (item.amount_tax || 0), 0) / 100
+    } // Total tax from all line items
+    Shipping: $${orderData.shippingInfo?.shippingCost?.toFixed(2) || "0.00"}
+    Total: $${orderData.totalPrice?.toFixed(2) || "0.00"}
     
     Your order will be shipped soon. You will receive a confirmation email when your order is on its way.
     
@@ -62,58 +67,69 @@ export const generateOrderConfirmationEmail = (
             <h2 style="font-size: 20px; border-bottom: 2px solid #4F46E5; padding-bottom: 10px; margin-bottom: 20px;">Order Details</h2>
 
             ${lineItems
-              .map(
-                (item, index) => `
-            <table cellpadding="0" cellspacing="0" style="width: 100%; margin-bottom: 20px; border-bottom: ${
-              index < lineItems.length - 1 ? "1px solid #e0e0e0" : "none"
-            };">
-              <tr>
-                <td style="padding: 0 0 20px 0; vertical-align: top;">
-                  <img src="${item.productDetails.images[0]}" alt="${
+              .map((item, index) => {
+                const price = item.price?.unit_amount
+                  ? (item.price.unit_amount / 100).toFixed(2)
+                  : "0.00";
+                const total = item.amount_total
+                  ? (item.amount_total / 100).toFixed(2)
+                  : "0.00";
+                const itemTax = item.amount_tax
+                  ? (item.amount_tax / 100).toFixed(2)
+                  : "0.00";
+                return `
+                  <table cellpadding="0" cellspacing="0" style="width: 100%; margin-bottom: 20px; border-bottom: ${
+                    index < lineItems.length - 1 ? "1px solid #e0e0e0" : "none"
+                  };">
+                    <tr>
+                      <td style="padding: 0 0 20px 0; vertical-align: top;">
+                        <img src="${
+                          item.productDetails.images?.[0] || ""
+                        }" alt="${
                   item.description
                 }" style="width: 100px; height: auto; border-radius: 4px;">
-                </td>
-                <td style="padding: 0 0 20px 20px; vertical-align: top;">
-                  <h3 style="font-size: 18px; margin: 0 0 10px 0;">${
-                    item.description
-                  }</h3>
-                  <p style="font-size: 14px; color: #666; margin: 0 0 5px 0;">
-                    Color: ${item.productDetails.color || "N/A"} | Size: ${
-                  item.productDetails.size || "N/A"
-                }
-                  </p>
-                  <p style="font-size: 14px; color: #666; margin: 0 0 5px 0;">
-                    Quantity: ${item.quantity} | SKU: ${
+                      </td>
+                      <td style="padding: 0 0 20px 20px; vertical-align: top;">
+                        <h3 style="font-size: 18px; margin: 0 0 10px 0;">${
+                          item.description
+                        }</h3>
+                        <p style="font-size: 14px; color: #666; margin: 0 0 5px 0;">
+                          Quantity: ${item.quantity || 1} | SKU: ${
                   item.productDetails.sku || "N/A"
-                }
-                  </p>
-                  <p style="font-size: 16px; font-weight: bold; margin: 10px 0 0 0;">
-                    $${(item.price.unit_amount / 100).toFixed(2)}
-                  </p>
-                </td>
-              </tr>
-            </table>
-            `
-              )
+                } | Tax: $${itemTax}
+                        </p>
+                        <p style="font-size: 16px; font-weight: bold; margin: 10px 0 0 0;">
+                          $${price}
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                `;
+              })
               .join("")}
 
             <table cellpadding="0" cellspacing="0" style="width: 100%; margin-top: 20px;">
               <tr>
                 <td style="padding: 10px 0; border-top: 1px solid #e0e0e0;">Subtotal</td>
                 <td style="padding: 10px 0; text-align: right; border-top: 1px solid #e0e0e0;">
-                  $${orderData.subtotal.toFixed(2)}
+                  $${orderData.subtotal?.toFixed(2) || "0.00"}
                 </td>
               </tr>
               <tr>
                 <td style="padding: 10px 0;">Tax</td>
                 <td style="padding: 10px 0; text-align: right;">
-                  $${(orderData.taxAmount / 100).toFixed(2)}
+                  $${(
+                    lineItems.reduce(
+                      (acc, item) => acc + (item.amount_tax || 0),
+                      0
+                    ) / 100
+                  ).toFixed(2)}
                 </td>
               </tr>
               <tr>
                 <td style="padding: 10px 0;">Shipping</td>
                 <td style="padding: 10px 0; text-align: right;">
-                  $${orderData.shippingInfo.shippingCost.toFixed(2)}
+                  $${orderData.shippingInfo?.shippingCost?.toFixed(2) || "0.00"}
                 </td>
               </tr>
               <tr>
@@ -121,45 +137,16 @@ export const generateOrderConfirmationEmail = (
                   Total
                 </td>
                 <td style="padding: 15px 0; font-size: 18px; font-weight: bold; text-align: right; border-top: 2px solid #4F46E5;">
-                  $${orderData.totalPrice.toFixed(2)} CAD
+                  $${orderData.totalPrice?.toFixed(2) || "0.00"} CAD
                 </td>
               </tr>
             </table>
-
-            <div style="margin-top: 30px; padding: 20px; background-color: #f8fafc; border-radius: 4px;">
-              <h3 style="font-size: 18px; margin: 0 0 10px 0;">Shipping Information</h3>
-              <p style="font-size: 14px; margin: 0 0 5px 0;">
-                ${orderData.shippingInfo.address.line1}<br>
-                ${orderData.shippingInfo.address.city}, ${
-    orderData.shippingInfo.address.state
-  } ${orderData.shippingInfo.address.postal_code}<br>
-                ${orderData.shippingInfo.address.country}
-              </p>
-              <p style="font-size: 14px; margin: 10px 0 0 0;">
-                <strong>Shipping Method:</strong> Standard Shipping<br>
-                <strong>Estimated Delivery:</strong> ${new Date(
-                  Date.now() + 7 * 24 * 60 * 60 * 1000
-                ).toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
-            </div>
 
             <p style="font-size: 14px; color: #666; margin-top: 30px; text-align: center;">
               Your order will be shipped soon. You will receive a confirmation email when your order is on its way.
             </p>
             <p style="font-size: 16px; font-weight: bold; margin-top: 20px; text-align: center;">
               Thank you for shopping with us!
-            </p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding: 20px; background-color: #f6f9fc; text-align: center;">
-            <p style="font-size: 12px; color: #666; margin: 0;">
-              If you have any questions, please contact our customer support.
             </p>
           </td>
         </tr>

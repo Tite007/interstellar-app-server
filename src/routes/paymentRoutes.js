@@ -31,6 +31,8 @@ const getShippingOptions = () => [
         currency: "usd",
       },
       type: "fixed_amount",
+      tax_behavior: "inclusive", // Exclude tax from this shipping option
+      tax_code: "txcd_00000000", // Use non-taxable tax code for shipping
     },
   },
   {
@@ -45,6 +47,8 @@ const getShippingOptions = () => [
         currency: "usd",
       },
       type: "fixed_amount",
+      tax_behavior: "inclusive", // Exclude tax from this shipping option
+      tax_code: "txcd_00000000", // Use non-taxable tax code for shipping
     },
   },
 ];
