@@ -1,7 +1,7 @@
 // routes/notificationRoutes.js
 import express from "express";
 import { NotificationModel } from "../models/NotificationModel.js";
-import { generateProductAvailabilityEmail } from "../utils/ProductAvailabilityEmail.js";
+import { generateProductAvailabilityEmail } from "../utils/productAvailabilityEmail.js";
 import { sendEmail } from "../utils/email.js";
 import { Products } from "../models/ProductModel.js"; // Alias import to `Products`
 import { Category } from "../models/categoriesModel.js";
