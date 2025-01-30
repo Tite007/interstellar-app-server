@@ -55,7 +55,7 @@ export const generateOrderConfirmationEmail = (
     <body style="font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif; line-height: 1.6; color: #333; background-color: #f6f9fc; padding: 20px; margin: 0;">
       <table cellpadding="0" cellspacing="0" style="max-width: 600px; width: 100%; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
         <tr>
-          <td style="padding: 40px 30px; background-color: #269167; text-align: center;">
+          <td style="padding: 40px 30px; background-color: #fe4349; text-align: center;">
             <h1 style="color: #ffffff; font-size: 28px; margin: 0;">Order Confirmation</h1>
           </td>
         </tr>
@@ -64,7 +64,7 @@ export const generateOrderConfirmationEmail = (
             <p style="font-size: 16px; margin-bottom: 20px;">Thank you for your order, ${
               customer.name
             }!</p>
-            <h2 style="font-size: 20px; border-bottom: 2px solid #269167; padding-bottom: 10px; margin-bottom: 20px;">Order Details</h2>
+            <h2 style="font-size: 20px; border-bottom: 2px solid #fe4349; padding-bottom: 10px; margin-bottom: 20px;">Order Details</h2>
 
             ${lineItems
               .map((item, index) => {
@@ -86,8 +86,8 @@ export const generateOrderConfirmationEmail = (
                         <img src="${
                           item.productDetails.images?.[0] || ""
                         }" alt="${
-                          item.description
-                        }" style="width: 100px; height: auto; border-radius: 4px;">
+                  item.description
+                }" style="width: 100px; height: auto; border-radius: 4px;">
                       </td>
                       <td style="padding: 0 0 20px 20px; vertical-align: top;">
                         <h3 style="font-size: 18px; margin: 0 0 10px 0;">${
@@ -95,8 +95,8 @@ export const generateOrderConfirmationEmail = (
                         }</h3>
                         <p style="font-size: 14px; color: #666; margin: 0 0 5px 0;">
                           Quantity: ${item.quantity || 1} | SKU: ${
-                            item.productDetails.sku || "N/A"
-                          } | Tax: $${itemTax}
+                  item.productDetails.sku || "N/A"
+                } | Tax: $${itemTax}
                         </p>
                         <p style="font-size: 16px; font-weight: bold; margin: 10px 0 0 0;">
                           $${price}
@@ -133,7 +133,7 @@ export const generateOrderConfirmationEmail = (
                 </td>
               </tr>
               <tr>
-                <td style="padding: 15px 0; font-size: 18px; font-weight: bold; border-top: 2px solid #4F46E5;">
+                <td style="padding: 15px 0; font-size: 18px; font-weight: bold; border-top: 2px solid #fe4349;">
                   Total
                 </td>
                 <td style="padding: 15px 0; font-size: 18px; font-weight: bold; text-align: right; border-top: 2px solid #4F46E5;">
