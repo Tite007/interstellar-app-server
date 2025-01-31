@@ -60,7 +60,7 @@ export const generateOrderConfirmationEmail = (
             <table cellpadding="0" cellspacing="0" style="width: 100%;">
               <tr>
                 <td style="width: 120px; vertical-align: middle;">
-                  <img src="https://logos-muchio.s3.us-west-2.amazonaws.com/muchio-logo-600x600.webp alt="Muchio" style="width: 120px; height: auto;">
+                  <img src="https://logos-muchio.s3.us-west-2.amazonaws.com/muchio-logo-600x600.webp" alt="Muchio" style="width: 120px; height: auto;">
                 </td>
                 <td style="vertical-align: middle; padding-left: 20px;">
                   <h1 style="color: #ffffff; font-size: 24px; margin: 0; font-weight: 600;">Order Confirmation</h1>
