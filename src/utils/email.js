@@ -15,7 +15,7 @@ const transporter = nodemailer.createTransport({
 
 export const sendEmail = (to, subject, text, html = "") => {
   const mailOptions = {
-    from: '"Your Company" <no-reply@interstellar-inc.com>', // Sender address
+    from: '"Muchio Shop" <no-reply@interstellar-inc.com>', // Sender address
     to, // Recipient address
     subject, // Subject line
     text, // Plain text body

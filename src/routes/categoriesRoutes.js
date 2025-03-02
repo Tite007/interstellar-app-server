@@ -1,6 +1,7 @@
 // routes/categoriesRoutes.js
 import express from "express";
 import { Category } from "../models/categoriesModel.js";
+import mongoose from "mongoose"; // Add this import
 import multer from "multer";
 import {
   S3Client,
@@ -105,12 +106,17 @@ router.put("/updateCategory/:id", upload.single("image"), async (req, res) => {
   let imageUrl = null;
 
   try {
+    // Validate the category ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid category ID" });
+    }
+
     const category = await Category.findById(id);
     if (!category) {
       return res.status(404).json({ message: "Category not found" });
     }
 
-    // If an image is uploaded, save it to S3
+    // If an image is uploaded, save it to S3 and delete the old one if it exists
     if (req.file) {
       const params = {
         Bucket: process.env.AWS_BUCKET_NAME,
@@ -118,8 +124,18 @@ router.put("/updateCategory/:id", upload.single("image"), async (req, res) => {
         Body: req.file.buffer,
         ContentType: req.file.mimetype,
       };
-      const data = await s3Client.send(new PutObjectCommand(params));
+      await s3Client.send(new PutObjectCommand(params));
       imageUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${params.Key}`;
+
+      if (category.image) {
+        const oldKey = category.image.split("/").pop();
+        await s3Client.send(
+          new DeleteObjectCommand({
+            Bucket: process.env.AWS_BUCKET_NAME,
+            Key: oldKey,
+          })
+        );
+      }
     }
 
     // Update category fields
@@ -127,6 +143,9 @@ router.put("/updateCategory/:id", upload.single("image"), async (req, res) => {
     category.image = imageUrl || category.image;
 
     if (parentId) {
+      if (!mongoose.Types.ObjectId.isValid(parentId)) {
+        return res.status(400).json({ message: "Invalid parent category ID" });
+      }
       const parentCategory = await Category.findById(parentId);
       if (!parentCategory) {
         return res.status(404).json({ message: "Parent category not found" });
@@ -141,6 +160,7 @@ router.put("/updateCategory/:id", upload.single("image"), async (req, res) => {
     await category.save();
     res.status(200).json(category);
   } catch (error) {
+    console.error("Error in updateCategory:", error);
     res.status(500).json({ message: error.message });
   }
 });
