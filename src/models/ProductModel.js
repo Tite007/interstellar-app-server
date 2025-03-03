@@ -1,3 +1,4 @@
+// src/models/ProductModel.js
 import mongoose from "mongoose";
 
 // Define schema for variant options
@@ -10,7 +11,7 @@ const variantOptionSchema = new mongoose.Schema({
   margin: String,
   profit: Number,
   compareAtPrice: Number,
-  stripeProductId: { type: String, unique: true }, // Add Stripe Product ID here
+  stripeProductId: { type: String, unique: true },
 });
 
 // Define schema for variants
@@ -35,7 +36,7 @@ const productsSchema = new mongoose.Schema({
     required: false,
   },
   sku: { type: String, required: true },
-  stripeProductId: { type: String }, // Allows null values without uniqueness enforcement
+  stripeProductId: { type: String },
   price: { type: Number, required: true, min: 0 },
   costPrice: { type: Number, required: true, min: 0 },
   profit: { type: Number, min: 0, required: true },
@@ -56,7 +57,7 @@ const productsSchema = new mongoose.Schema({
   seoDescription: { type: String },
   seoKeywords: { type: String },
   time: { type: Date, default: Date.now },
-  variants: [variantSchema],
+  variants: { type: [variantSchema], default: [] }, // Ensure variants is always an array
   roastLevel: { type: String },
   technicalData: {
     country: { type: String },
@@ -68,12 +69,11 @@ const productsSchema = new mongoose.Schema({
     tasteNotes: { type: String },
   },
   reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: "Review" }],
-  brand: { type: String }, // Added brand field
-  expirationDate: { type: Date }, // Added expiration date field
-  taxCode: { type: String }, // Store stripeTaxCode directly
+  brand: { type: String },
+  expirationDate: { type: Date },
+  taxCode: { type: String },
 });
 
-// Adding an index to the sku field for faster queries
 productsSchema.index({ sku: 1 });
 
 export const Products = mongoose.model("Product", productsSchema);

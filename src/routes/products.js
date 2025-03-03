@@ -5,6 +5,7 @@ import { TaxCode } from "../models/taxCodeModel.js"; // Import the TaxCode model
 
 const router = express.Router();
 
+// Route to add a product-updated
 router.post("/addProduct", async (req, res) => {
   const {
     name,
@@ -32,17 +33,33 @@ router.post("/addProduct", async (req, res) => {
     technicalData,
     brand,
     expirationDate,
-    taxCode, // This is the stripeTaxCode directly
+    taxCode,
   } = req.body;
 
   try {
-    // Validate that the provided stripeTaxCode exists
+    // Validate tax code
     const taxCodeDoc = await TaxCode.findOne({ stripeTaxCode: taxCode });
     if (!taxCodeDoc) {
       return res.status(400).json({ message: "Invalid stripe tax code" });
     }
 
-    // Save only the stripeTaxCode in the product
+    // Validate images
+    const isValidUrl = (url) => {
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    if (!Array.isArray(images) || images.some((url) => !isValidUrl(url))) {
+      return res.status(400).json({ message: "Invalid or missing image URLs" });
+    }
+
+    // Normalize variants to empty array if null/undefined
+    const normalizedVariants = variants || [];
+
     const newProduct = new Products({
       name,
       description,
@@ -51,7 +68,7 @@ router.post("/addProduct", async (req, res) => {
       sku,
       price,
       stock,
-      images,
+      images, // Only valid URLs get here
       costPrice,
       profit,
       margin,
@@ -64,12 +81,12 @@ router.post("/addProduct", async (req, res) => {
       seoTitle,
       seoDescription,
       seoKeywords,
-      variants,
+      variants: normalizedVariants,
       roastLevel,
       technicalData,
       brand,
       expirationDate,
-      taxCode: taxCodeDoc.stripeTaxCode, // Save stripeTaxCode
+      taxCode: taxCodeDoc.stripeTaxCode,
     });
 
     await newProduct.save();
@@ -270,7 +287,7 @@ router.delete("/deleteProductVariant/:id/:variantId", async (req, res) => {
   }
 });
 
-// Route to add a new variant to a product by _id
+// Route to add a product variant by _id updated new
 router.post("/addProductVariant/:id", async (req, res) => {
   const { id } = req.params;
   const newVariant = req.body;
@@ -279,6 +296,11 @@ router.post("/addProductVariant/:id", async (req, res) => {
     const product = await Products.findById(id);
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
+    }
+
+    // Ensure variants is an array
+    if (!Array.isArray(product.variants)) {
+      product.variants = [];
     }
 
     product.variants.push(newVariant);

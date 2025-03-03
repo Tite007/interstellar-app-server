@@ -53,7 +53,6 @@ const getShippingOptions = () => [
   },
 ];
 
-// Function to map a product to a line item with tax information
 const mapItemToLineItem = (item, products) => {
   const product = products.find((p) => p._id.toString() === item.productId);
   if (!product) {
@@ -65,22 +64,13 @@ const mapItemToLineItem = (item, products) => {
   let name, price, image, metadata, taxCode;
 
   if (variantId) {
-    const variant = product.variants.find((v) =>
-      v.optionValues.some((ov) => ov._id.toString() === variantId)
+    const variant = product.variants.find(
+      (v) => v._id.toString() === variantId
     );
-
     if (!variant) {
       throw new Error(`Variant not found for ID: ${variantId}`);
     }
-
-    const variantOption = variant.optionValues.find(
-      (v) => v._id.toString() === variantId
-    );
-
-    if (!variantOption) {
-      throw new Error(`Variant option not found for ID: ${variantId}`);
-    }
-
+    const variantOption = variant.optionValues[0];
     name = `${product.name} - ${variantOption.value}`;
     price = variantOption.price;
     image = variant.images?.[0] || product.images[0] || null;
@@ -101,12 +91,13 @@ const mapItemToLineItem = (item, products) => {
     };
   }
 
-  // Log the tax code and other product data for verification
   console.log(`Mapping item to line item:
     Product ID: ${productId}
     Variant ID: ${variantId}
     Name: ${name}
     Price: ${price}
+    Image (from DB): ${product.images[0]}
+    Image (sent): ${image}
     Tax Code: ${taxCode}`);
 
   if (isNaN(price)) {
@@ -116,11 +107,25 @@ const mapItemToLineItem = (item, products) => {
   const productData = {
     name: name,
     metadata: metadata,
-    tax_code: taxCode, // Include the tax code
+    tax_code: taxCode,
   };
 
-  if (image) {
+  const isValidUrl = (url) => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  if (image && isValidUrl(image)) {
     productData.images = [image];
+    console.log(`Valid image URL included: ${image}`);
+  } else {
+    console.warn(
+      `Invalid or missing image URL for product ID: ${productId}, skipping image`
+    );
   }
 
   return {
@@ -128,7 +133,7 @@ const mapItemToLineItem = (item, products) => {
       currency: "usd",
       product_data: productData,
       unit_amount: Math.round(price * 100),
-      tax_behavior: "exclusive", // Set tax behavior to exclusive
+      tax_behavior: "exclusive",
     },
     adjustable_quantity: {
       enabled: true,
@@ -139,13 +144,21 @@ const mapItemToLineItem = (item, products) => {
   };
 };
 
-// Route to create a checkout session with tax calculation
 router.post("/checkout", async (req, res) => {
   try {
-    const { items, YOUR_DOMAIN } = req.body;
+    const { items, success_url, cancel_url } = req.body;
+    console.log(
+      "Checkout request received with items:",
+      JSON.stringify(items, null, 2)
+    );
 
     if (!items || items.length === 0) {
       return res.status(400).send({ error: "No items provided" });
+    }
+    if (!success_url || !cancel_url) {
+      return res
+        .status(400)
+        .send({ error: "Missing success_url or cancel_url" });
     }
 
     const productIds = items.map((item) => item.productId);
@@ -156,24 +169,25 @@ router.post("/checkout", async (req, res) => {
     }
 
     const lineItems = items.map((item) => mapItemToLineItem(item, products));
-
-    // Log the final lineItems array to verify the tax data before checkout session creation
-    console.log("Line items with tax information:", lineItems);
+    console.log(
+      "Line items with tax information:",
+      JSON.stringify(lineItems, null, 2)
+    );
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: lineItems,
       mode: "payment",
-      success_url: `${YOUR_DOMAIN}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${YOUR_DOMAIN}/cancel`,
+      success_url,
+      cancel_url,
       shipping_address_collection: {
         allowed_countries: ["US", "CA"],
       },
-      shipping_options: getShippingOptions(), // Add shipping options if needed
+      shipping_options: getShippingOptions(),
       metadata: {
-        orderId: "unique_order_id",
+        orderId: new mongoose.Types.ObjectId().toString(),
       },
-      automatic_tax: { enabled: true }, // Enable automatic tax calculation
+      automatic_tax: { enabled: true },
     });
 
     res.json({ id: session.id });
@@ -183,7 +197,7 @@ router.post("/checkout", async (req, res) => {
   }
 });
 
-// Route to create a checkout session for existent customer - not updated
+// Route to create a checkout session for existent customer - not updated - I do not recommend using this route
 router.post("/create-checkout-session", async (req, res) => {
   const { items, userInfo, YOUR_DOMAIN, orderId } = req.body; // Accept orderId from the request
 

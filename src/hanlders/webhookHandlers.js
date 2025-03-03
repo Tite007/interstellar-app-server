@@ -12,24 +12,30 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export const handleCheckoutSessionCompleted = async (session) => {
   try {
-    console.log("Session data:", session);
+    console.log("Webhook triggered: checkout.session.completed");
+    console.log("Session data:", JSON.stringify(session, null, 2));
 
     const customer = await findOrCreateCustomer(session.customer_details);
-    const lineItems = await getLineItemsWithProductDetails(session.id); // Get line items with product details
+    console.log("Customer found or created:", customer.id);
+
+    const lineItems = await getLineItemsWithProductDetails(session.id);
+    console.log("Line items retrieved:", JSON.stringify(lineItems, null, 2));
+
     const orderData = await buildOrderData(session, customer, lineItems);
+    console.log("Order data built:", JSON.stringify(orderData, null, 2));
 
     const order = await createOrder(orderData);
     console.log("Order created:", order);
 
     await updateProductStock(lineItems);
+    console.log("Stock update completed");
 
-    // Generate and send the confirmation email
     const { emailSubject, emailText, emailHtml } =
       generateOrderConfirmationEmail(customer, orderData, lineItems);
     await sendEmail(orderData.user, emailSubject, emailText, emailHtml);
     console.log("Order confirmation email sent.");
   } catch (error) {
-    console.error("Error handling checkout session completed:", error);
+    console.error("Error in handleCheckoutSessionCompleted:", error.stack);
     throw error;
   }
 };
@@ -85,25 +91,25 @@ const getLineItemsWithProductDetails = async (sessionId) => {
   }
 };
 
-// Build order data to send to your order creation API
 const buildOrderData = async (session, customer, lineItems) => {
   return {
     user: customer.email,
     items: lineItems.map((item) => {
       const productId = item.productDetails.metadata.productId;
       const variantId = item.productDetails.metadata.variantId || null;
+      const variantName = item.productDetails.metadata.variantName || null;
 
       return {
-        productId: productId, // Use the productId directly as a string
-        variantId: variantId, // Use the variantId directly as a string
-        name: item.description,
-        variantName: item.productDetails.metadata.variantName || null,
+        productId: productId,
+        variantId: variantId,
+        name: item.description, // Full name with variant (e.g., "Finca Santa Rosa Washed - 1kg")
+        variantName: variantName, // Still include for reference (e.g., "1kg")
         quantity: item.quantity,
         price: item.amount_total / item.quantity / 100,
         total: item.amount_total / 100,
         image: item.productDetails.images
           ? item.productDetails.images[0]
-          : null, // Correctly access the image
+          : null,
       };
     }),
     shippingInfo: {
@@ -146,65 +152,80 @@ const createOrder = async (orderData) => {
   }
 };
 
-// Update product stock in your database
 const updateProductStock = async (lineItems) => {
-  for (const item of lineItems) {
-    const productId = item.price.product.metadata.productId; // Use string-based productId
-    const product = await Products.findById(productId);
+  console.log("Starting stock update for line items:", lineItems.length);
+  console.log("Line items:", JSON.stringify(lineItems, null, 2));
 
+  for (const item of lineItems) {
+    const productId = item.price.product.metadata.productId;
+    const variantId = item.price.product.metadata.variantId || null;
+    console.log(
+      `Processing stock update - Product ID: ${productId}, Variant ID: ${variantId}, Quantity: ${item.quantity}`
+    );
+
+    const product = await Products.findById(productId);
     if (product) {
-      if (item.price.product.metadata.variantId) {
-        // Handle variant stock update
-        const variantId = item.price.product.metadata.variantId; // Use string-based variantId
+      console.log(
+        `Product found: ${product.name}, Variants: ${JSON.stringify(product.variants, null, 2)}`
+      );
+      if (variantId && variantId !== "") {
+        console.log(`Updating variant stock for Variant ID: ${variantId}`);
         updateVariantStock(product, variantId, item.quantity);
       } else {
-        // Handle main product stock update
+        console.log(`Updating main product stock`);
         updateMainProductStock(product, item.quantity);
       }
-
       await product.save();
+      const updatedVariant = variantId
+        ? product.variants.find((v) => v._id.toString() === variantId)
+        : null;
+      console.log(
+        `Product saved: ${product.name}, Updated stock: ${variantId ? updatedVariant?.optionValues[0]?.quantity : product.currentStock}`
+      );
     } else {
-      console.error(`Product not found: ${item.description}`);
+      console.error(`Product not found for ID: ${productId}`);
     }
   }
 };
 
-// Update stock for the main product
-const updateMainProductStock = (product, quantity) => {
-  if (product.currentStock >= quantity) {
-    product.currentStock -= quantity;
-    console.log(`Stock updated for product ID: ${product._id}`);
-  } else {
-    console.error(`Insufficient stock for product ID: ${product._id}`);
-    throw new Error(`Insufficient stock for product ID: ${product._id}`);
-  }
-};
-
-// Update stock for a specific variant
 const updateVariantStock = (product, variantId, quantity) => {
-  // Find the variant that contains the correct option value
-  const variant = product.variants.find((v) =>
-    v.optionValues.some((opt) => opt._id.toString() === variantId)
-  );
-
+  const variant = product.variants.find((v) => v._id.toString() === variantId);
   if (variant) {
-    // Now find the specific option value inside the located variant
-    const option = variant.optionValues.find(
-      (opt) => opt._id.toString() === variantId
-    );
-
+    const option = variant.optionValues[0];
     if (option) {
       if (option.quantity >= quantity) {
         option.quantity -= quantity;
-        console.log(`Stock updated for variant ID: ${variantId}`);
+        console.log(
+          `Stock updated for variant ID: ${variantId}, new quantity: ${option.quantity}`
+        );
       } else {
-        console.error(`Insufficient stock for variant ID: ${variantId}`);
+        console.error(
+          `Insufficient stock for variant ID: ${variantId}, current: ${option.quantity}, requested: ${quantity}`
+        );
         throw new Error(`Insufficient stock for variant ID: ${variantId}`);
       }
     } else {
-      console.error(`Option not found for variant ID: ${variantId}`);
+      console.error(`No option values found for variant ID: ${variantId}`);
+      throw new Error(`No option values found for variant ID: ${variantId}`);
     }
   } else {
-    console.error(`Variant not found for ID: ${variantId}`);
+    console.error(
+      `Variant not found for ID: ${variantId} in product ${product._id}`
+    );
+    throw new Error(`Variant not found for ID: ${variantId}`);
+  }
+};
+
+const updateMainProductStock = (product, quantity) => {
+  if (product.currentStock >= quantity) {
+    product.currentStock -= quantity;
+    console.log(
+      `Stock updated for product ID: ${product._id}, new quantity: ${product.currentStock}`
+    );
+  } else {
+    console.error(
+      `Insufficient stock for product ID: ${product._id}, current: ${product.currentStock}, requested: ${quantity}`
+    );
+    throw new Error(`Insufficient stock for product ID: ${product._id}`);
   }
 };
